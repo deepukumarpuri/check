@@ -1,0 +1,61 @@
+# By @TroJanzHEX
+from PIL import Image, ImageEnhance, ImageFilter
+import shutil
+import cv2
+import os
+from core.handlers.main_db_handler import db
+from core.handlers.force_sub_handler import handle_force_subscribe
+from core.handlers.broadcast_handlers import broadcast_handler
+from pyrogram.errors.exceptions.flood_420 import FloodWait
+from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant, MessageNotModified
+
+@AHBot.on_message(filters.command(["start", "help"]) & filters.private)
+async def HelpWatermark(bot, cmd):
+	if not await db.is_user_exist(cmd.from_user.id):
+		await db.add_user(cmd.from_user.id)
+		await bot.send_message(
+			Config.LOG_CHANNEL,
+			f"#NEW_USER: \n\nNew User [{cmd.from_user.first_name}](tg://user?id={cmd.from_user.id}) started @{Config.BOT_USERNAME} !!"
+		)
+	if Config.UPDATES_CHANNEL:
+		fsub = await handle_force_subscribe(bot, cmd)
+		if fsub == 400:
+			return
+async def bright(client, message):
+    try:
+        userid = str(message.chat.id)
+        if not os.path.isdir(f"./DOWNLOADS/{userid}"):
+            os.makedirs(f"./DOWNLOADS/{userid}")
+        download_location = "./DOWNLOADS" + "/" + userid + "/" + userid + ".jpg"
+        edit_img_loc = "./DOWNLOADS" + "/" + userid + "/" + "brightness.jpg"
+        if not message.reply_to_message.empty:
+            msg = await message.reply_to_message.reply_text(
+                "Downloading image", quote=True
+            )
+            a = await client.download_media(
+                message=message.reply_to_message, file_name=download_location
+            )
+            await msg.edit("Processing Image...")
+            image = Image.open(a)
+            brightness = ImageEnhance.Brightness(image)
+            brightness.enhance(1.5).save(edit_img_loc)
+            await message.reply_chat_action("upload_photo")
+            await message.reply_to_message.reply_photo(edit_img_loc, quote=True)
+            await msg.delete()
+        else:
+            await message.reply_text("Why did you delete that??")
+        try:
+            shutil.rmtree(f"./DOWNLOADS/{userid}")
+        except Exception:
+            pass
+    except Exception as e:
+        print("bright-error - " + str(e))
+        if "USER_IS_BLOCKED" in str(e):
+            return
+        else:
+            try:
+                await message.reply_to_message.reply_text(
+                    "Something went wrong!", quote=True
+                )
+            except Exception:
+                return
